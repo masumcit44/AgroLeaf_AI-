@@ -61,7 +61,11 @@ AgroLeaf AI is made possible by open-source technologies, publicly available agr
 - **Playwright** ([microsoft/playwright](https://github.com/microsoft/playwright)) — Microsoft (Apache License 2.0), E2E tests
 - **oxlint** ([oxc-project/oxc](https://github.com/oxc-project/oxc)) — Oxc contributors (MIT License)
 - **jsdom** and **fake-indexeddb** — test environment (MIT / Apache-2.0)
-- **Open-Meteo** ([open-meteo.com](https://open-meteo.com)) — Open-source weather forecast API for division-level disease risk estimation (Creative Commons Attribution 4.0 International, CC BY 4.0)
+- **framer-motion** ([motiondivision/motion](https://github.com/motiondivision/motion)) — animations (MIT License)
+- **lucide-react** ([lucide-icons/lucide](https://github.com/lucide-icons/lucide)) — icons (ISC License)
+- **Open-Meteo** ([open-meteo.com](https://open-meteo.com)) — weather forecast API for the Weather tab's disease-risk bands, queried with the opt-in GPS point rounded to ~1 km, or Dhaka (data licence CC BY 4.0)
+- **OpenStreetMap Nominatim** ([nominatim.openstreetmap.org](https://nominatim.openstreetmap.org)) — reverse geocoding for the area name on the Weather tab, one request per "Auto Location" tap. Data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), ODbL 1.0
+- **Home page crop photos** (`web/public/crops/`) — Wikimedia Commons; authors and licences (CC BY 2.0, CC BY-SA 4.0, CC BY 4.0, CC0, public domain) in `web/public/crops/CREDITS.md`
 
 ---
 
@@ -90,4 +94,5 @@ AgroLeaf AI is made possible by open-source technologies, publicly available agr
 - **Gemini Antigravity (Google)** — Masum, Tanjil, Mehedi: feature coding on their own branches, TDD unit tests, UI/UX redesign.
 - **GitHub Copilot (VS Code)** — Mehedi: code and test assistance for F9 scan history.
 - **ChatGPT (OpenAI)** — research only (datasets, disease information, methods); not used to write code.
+- No other AI coding tool was used (no Kilo Code, no Cursor).
 - সকল কোড, মডেল ও সিদ্ধান্ত দলের সদস্যদের দ্বারা স্বহস্তে যাচাইকৃত, পরীক্ষিত এবং পরিচালিত।
