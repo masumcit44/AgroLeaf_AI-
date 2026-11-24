@@ -274,4 +274,59 @@ describe('leafRegions - proposeLeafRegions & gridTiles', () => {
     expect(stats.brownShare).toBeGreaterThan(0.9)
     expect(stats.greenShare).toBe(0)
   })
+
+  it('7. green row spanning full width (touching 3 borders) survives soil mode', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    // Soil background rgb(120, 85, 55)
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 120
+      data[i * 4 + 1] = 85
+      data[i * 4 + 2] = 55
+      data[i * 4 + 3] = 255
+    }
+
+    // Green row spanning full width at bottom: x=0, y=230, w=400, h=70, rgb(40, 150, 40)
+    drawRect(data, width, 0, 230, 400, 70, 40, 150, 40)
+
+    // Two green 50x40 leaves at (60,40) and (250,40)
+    drawRect(data, width, 60, 40, 50, 40, 40, 150, 40)
+    drawRect(data, width, 250, 40, 50, 40, 40, 150, 40)
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('leaf_regions')
+    expect(res.boxes.length).toBe(3)
+    const rowBox = res.boxes.find((b) => b.y >= 200 && b.w >= 300)
+    expect(rowBox).toBeDefined()
+  })
+
+  it('8. bright straw band spanning full width at bottom (touches 3 borders, brown) stays dropped', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    // Soil background rgb(120, 85, 55)
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 120
+      data[i * 4 + 1] = 85
+      data[i * 4 + 2] = 55
+      data[i * 4 + 3] = 255
+    }
+
+    // Bright straw band spanning full width at bottom: rgb(200, 170, 110)
+    drawRect(data, width, 0, 230, 400, 70, 200, 170, 110)
+
+    // Two green 50x40 leaves at (60,40) and (250,40)
+    drawRect(data, width, 60, 40, 50, 40, 40, 150, 40)
+    drawRect(data, width, 250, 40, 50, 40, 40, 150, 40)
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('leaf_regions')
+    // Straw band touches 3 borders and is brown (< 0.5 green), so it must be dropped
+    expect(res.boxes.length).toBe(2)
+    const strawBox = res.boxes.find((b) => b.y >= 200 && b.w >= 300)
+    expect(strawBox).toBeUndefined()
+  })
 })
