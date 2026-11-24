@@ -8,6 +8,20 @@ AgroLeaf AI হলো একটি সম্পূর্ণ ব্রাউজ�
 
 ---
 
+## At a glance (for judges)
+
+| | |
+|---|---|
+| Live app | https://agroleaf-ai-olive.vercel.app (no login) |
+| Onsite challenges | C1 field-row screening at `#/field-row` → [spec](docs/specs/C1_field_row.md) · C2 honest abstention (`not_rice`, `dead_leaf`, `unrelated_crop`) → [spec](docs/specs/C2_abstention.md) |
+| AI | Scratch-trained ONNX model (`pretrained=False`), real in-browser inference with ONNX Runtime Web; the photo never leaves the device |
+| Tests | 524 web tests passing (Vitest, 24 Nov final) plus `ml/` pytest; CI runs lint, test and build on every PR |
+| Run locally | `cd web && npm ci && npm run demo` (offline, port 4173), see [section ৮](#৮-লোকাল-সেটআপ-ও-অফলাইন-ডেমো-run-locally) |
+| Rules | [docs/RULES_COMPLIANCE.md](docs/RULES_COMPLIANCE.md) · AI tools disclosed in [section ৭](#৭-এআই-টুলের-স্বচ্ছ-ডিসক্লোজার-ai-tools-disclosure---rule-10--12) |
+| Safety | No pesticide names or doses; every result shows the disclaimer and Krishi Call Centre 16123 |
+
+---
+
 ## ১. টিম সদস্যবৃন্দ (Team EU_SHADOW)
 
 | সদস্য | ভূমিকা ও দায়িত্ব | ছাত্র আইডি |
