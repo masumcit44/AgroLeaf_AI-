@@ -1,4 +1,5 @@
 import type { ClassId } from './classes'
+import type { AbstentionReason } from './fieldRow.types'
 
 /**
  * CONTRACT between the AI engine (Masum, src/ai/) and the UI (Tanjil) and content (Mehedi).
@@ -98,4 +99,5 @@ export interface Prediction {
   modelVersion: string
   trainedFromScratch: boolean
   latencyMs: number
+  abstain?: AbstentionReason
 }

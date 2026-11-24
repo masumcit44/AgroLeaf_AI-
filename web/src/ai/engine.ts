@@ -1,5 +1,8 @@
 import * as ort from 'onnxruntime-web/wasm'
+import { decideAbstention } from './abstain'
 import { decideTier } from './decideTier'
+import type { AbstentionReason } from './fieldRow.types'
+import { computeColorStats, extractPixelData } from './leafColor'
 import { preprocess, type PreprocessImageInput } from './preprocess'
 import { softmax } from './softmax'
 import type { ClassProb, ModelMeta, Prediction } from './types'
@@ -9,12 +12,14 @@ const LOAD_TIMEOUT_MS = 60_000
 let loadingPromise: Promise<ModelMeta> | null = null
 let cachedMeta: ModelMeta | null = null
 let cachedSession: ort.InferenceSession | null = null
+let fixedBatch1: boolean | null = null
 
 /** Reset internal cache for test environments. */
 export function resetEngineState(): void {
   loadingPromise = null
   cachedMeta = null
   cachedSession = null
+  fixedBatch1 = null
 }
 
 /**
@@ -59,9 +64,20 @@ export function loadModel(): Promise<ModelMeta> {
         )
       }
 
+      let modelInput: string | Uint8Array = modelUrl
+      try {
+        const modelRes = await fetch(modelUrl)
+        if (modelRes.ok) {
+          const buf = await modelRes.arrayBuffer()
+          modelInput = new Uint8Array(buf)
+        }
+      } catch {
+        // Keep string modelUrl fallback for mocked test environments
+      }
+
       try {
         ort.env.wasm.numThreads = 1
-        const session = await ort.InferenceSession.create(modelUrl, {
+        const session = await ort.InferenceSession.create(modelInput as any, {
           executionProviders: ['wasm'],
         })
         if (isTimedOut) {
@@ -93,6 +109,61 @@ export function loadModel(): Promise<ModelMeta> {
   })()
 
   return loadingPromise
+}
+
+/**
+ * Runs inference on batched NCHW tensor data [n, 3, 224, 224], returning logits for each sample.
+ * Reuses the cached session and automatically handles fixed batch 1 graphs by falling back sequentially.
+ */
+export async function runLogits(
+  tensorData: Float32Array,
+  n: number,
+): Promise<Float32Array[]> {
+  const meta = await loadModel()
+  const session = cachedSession!
+  const inputName = session.inputNames[0] ?? 'input'
+  const logitsName = session.outputNames[0] ?? 'logits'
+  const numClasses = meta.classes.length
+
+  if (n <= 0) return []
+
+  // Try batched inference if fixedBatch1 is not known to be true
+  if (fixedBatch1 !== true && n > 1) {
+    try {
+      const batchedTensor = new ort.Tensor('float32', tensorData, [
+        n,
+        3,
+        meta.inputSize,
+        meta.inputSize,
+      ])
+      const out = await session.run({ [inputName]: batchedTensor })
+      const outLogits = out[logitsName].data as Float32Array
+      fixedBatch1 = false
+      const results: Float32Array[] = []
+      for (let i = 0; i < n; i++) {
+        results.push(outLogits.subarray(i * numClasses, (i + 1) * numClasses))
+      }
+      return results
+    } catch {
+      fixedBatch1 = true
+    }
+  }
+
+  // Sequential execution
+  const sampleSize = 3 * meta.inputSize * meta.inputSize
+  const results: Float32Array[] = []
+  for (let i = 0; i < n; i++) {
+    const slice = tensorData.subarray(i * sampleSize, (i + 1) * sampleSize)
+    const singleTensor = new ort.Tensor('float32', slice, [
+      1,
+      3,
+      meta.inputSize,
+      meta.inputSize,
+    ])
+    const out = await session.run({ [inputName]: singleTensor })
+    results.push(out[logitsName].data as Float32Array)
+  }
+  return results
 }
 
 /**
@@ -144,8 +215,23 @@ export async function analyze(
 
   const top: ClassProb[] = notRiceEntry ? [...diseases, notRiceEntry] : diseases
 
-  // 5. Determine tier
-  const tier = decideTier(top, meta)
+  // 5. Determine tier & evaluate honest abstention
+  let tier = decideTier(top, meta)
+  let abstain: AbstentionReason | undefined
+
+  try {
+    const rawPixels = extractPixelData(image)
+    const color = computeColorStats(rawPixels.data, rawPixels.width, rawPixels.height)
+    const abstention = decideAbstention({ probs: top, color, meta })
+    if (abstention === 'dead_leaf' || abstention === 'unrelated_crop') {
+      tier = 'not_rice'
+      abstain = abstention
+    } else if (tier === 'not_rice' || abstention === 'not_rice') {
+      abstain = 'not_rice'
+    }
+  } catch {
+    // If pixel extraction fails, maintain standard tier evaluation
+  }
 
   // 6. Handle optional Class Activation Map (CAM) heatmap
   let heatmap: Float32Array | undefined
@@ -200,6 +286,7 @@ export async function analyze(
     modelVersion: meta.version,
     trainedFromScratch: meta.trainedFromScratch,
     latencyMs,
+    ...(abstain ? { abstain } : {}),
     ...(meta.camOutput && heatmap ? { heatmap, heatmapSize } : {}),
   }
 }
