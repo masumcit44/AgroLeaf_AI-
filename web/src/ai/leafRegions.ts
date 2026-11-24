@@ -1,10 +1,16 @@
 import type { LeafBox } from './fieldRow.types'
 
+export type PixelClass = 'green' | 'brown' | 'other'
+
 /**
- * Checks whether an RGB pixel (0..255) meets the criteria for living leaf green
- * or dry/straw leaf brown.
+ * Classifies an RGB pixel (0..255) into 'green', 'brown', or 'other'
+ * using HSV color space thresholds, and returns its value (v in 0..1).
  */
-function isGreenOrBrown(r255: number, g255: number, b255: number): boolean {
+export function classifyPixel(
+  r255: number,
+  g255: number,
+  b255: number,
+): { type: PixelClass; v: number } {
   const r = r255 / 255
   const g = g255 / 255
   const b = b255 / 255
@@ -31,12 +37,81 @@ function isGreenOrBrown(r255: number, g255: number, b255: number): boolean {
   }
 
   // 1. Green: hue 60-170 deg, s >= 0.20, v >= 0.15
-  const isGreen = h >= 60 && h <= 170 && s >= 0.20 && v >= 0.15
+  if (h >= 60 && h <= 170 && s >= 0.20 && v >= 0.15) {
+    return { type: 'green', v }
+  }
   // 2. Brown: hue 15-55 deg, s >= 0.20 OR straw: s < 0.25 and 0.25 < v < 0.75 with r > g > b
   const isStraw = s < 0.25 && v > 0.25 && v < 0.75 && r > g && g > b
-  const isBrown = (h >= 15 && h <= 55 && s >= 0.20) || isStraw
+  if ((h >= 15 && h <= 55 && s >= 0.20) || isStraw) {
+    return { type: 'brown', v }
+  }
 
-  return isGreen || isBrown
+  return { type: 'other', v }
+}
+
+export interface RegionDebugStats {
+  soilMode: boolean
+  brownShare: number
+  greenShare: number
+  medianBrownV: number
+}
+
+/**
+ * Computes debug stats and soil mode detection for a given image.
+ * Downscales to max dimension 320 px before computing pixel share statistics.
+ */
+export function regionDebugStats(
+  img: { data: ArrayLike<number>; width: number; height: number },
+): RegionDebugStats {
+  const { data, width, height } = img
+  if (width <= 0 || height <= 0 || !data || data.length === 0) {
+    return { soilMode: false, brownShare: 0, greenShare: 0, medianBrownV: 0 }
+  }
+
+  const maxDim = Math.max(width, height)
+  const scale = maxDim > 320 ? 320 / maxDim : 1.0
+  const dw = Math.max(1, Math.round(width * scale))
+  const dh = Math.max(1, Math.round(height * scale))
+  const total = dw * dh
+
+  let greenCount = 0
+  let brownCount = 0
+  const hist = new Uint32Array(32)
+
+  for (let dy = 0; dy < dh; dy++) {
+    const sy = Math.min(height - 1, Math.floor(dy / scale))
+    for (let dx = 0; dx < dw; dx++) {
+      const sx = Math.min(width - 1, Math.floor(dx / scale))
+      const idx = (sy * width + sx) * 4
+      const { type, v } = classifyPixel(data[idx], data[idx + 1], data[idx + 2])
+      if (type === 'green') {
+        greenCount++
+      } else if (type === 'brown') {
+        brownCount++
+        const bin = Math.min(31, Math.max(0, Math.floor(v * 32)))
+        hist[bin]++
+      }
+    }
+  }
+
+  const brownShare = total > 0 ? brownCount / total : 0
+  const greenShare = total > 0 ? greenCount / total : 0
+  const soilMode = brownShare >= 0.35
+
+  let medianBrownV = 0
+  if (brownCount > 0) {
+    let cumulative = 0
+    const target = brownCount / 2
+    for (let b = 0; b < 32; b++) {
+      cumulative += hist[b]
+      if (cumulative >= target) {
+        medianBrownV = (b + 0.5) / 32
+        break
+      }
+    }
+  }
+
+  return { soilMode, brownShare, greenShare, medianBrownV }
 }
 
 /**
@@ -89,6 +164,16 @@ export function gridTiles(width: number, height: number): LeafBox[] {
 }
 
 /**
+ * Soil-aware region proposal heuristics:
+ * - 0.35 (soilMode threshold): When brown pixels comprise >= 35% of the frame, the scene is
+ *   dominated by soil/ground rather than dense foliage or neutral studio background.
+ * - 0.55 (absolute brightness floor): Dry straw/dead leaf tissue typically has high reflectance
+ *   (v >= 0.55), whereas wet or muddy paddy soil has lower value (v < 0.55).
+ * - +0.15 (relative brightness contrast): Retains brown pixels with value >= medianBrownV + 0.15,
+ *   ensuring high-contrast straw/dead leaves are segmented while ambient soil is suppressed.
+ * - 3 borders: Components touching >= 3 image borders represent pervasive background terrain
+ *   surrounding the plant canopy, rather than an isolated leaf region.
+ *
  * Proposes individual leaf regions from a whole-canopy or field-row photo.
  * If individual leaves cannot be segmented or canopy is dense (>70%),
  * returns overlapping grid tiles fallback.
@@ -111,20 +196,31 @@ export function proposeLeafRegions(
   const dh = Math.max(1, Math.round(height * scale))
   const totalScaledArea = dw * dh
 
-  // 2. Build binary mask of green OR brown pixels
+  // 2. Compute image statistics for soil-awareness (Pass 1)
+  const stats = regionDebugStats(img)
+  const brownThreshold = Math.max(0.55, stats.medianBrownV + 0.15)
+
+  // 3. Build binary mask (Pass 2)
+  // Soil mode: green OR leaf-bright brown (v >= max(0.55, medianBrownV + 0.15))
+  // Normal mode: green OR brown
   const mask = new Uint8Array(totalScaledArea)
   for (let dy = 0; dy < dh; dy++) {
     const sy = Math.min(height - 1, Math.floor(dy / scale))
     for (let dx = 0; dx < dw; dx++) {
       const sx = Math.min(width - 1, Math.floor(dx / scale))
       const idx = (sy * width + sx) * 4
-      if (isGreenOrBrown(data[idx], data[idx + 1], data[idx + 2])) {
+      const { type, v } = classifyPixel(data[idx], data[idx + 1], data[idx + 2])
+      if (type === 'green') {
         mask[dy * dw + dx] = 1
+      } else if (type === 'brown') {
+        if (!stats.soilMode || v >= brownThreshold) {
+          mask[dy * dw + dx] = 1
+        }
       }
     }
   }
 
-  // 3. 1-pass 3x3 dilation
+  // 4. 1-pass 3x3 dilation
   const dilated = new Uint8Array(totalScaledArea)
   for (let y = 0; y < dh; y++) {
     for (let x = 0; x < dw; x++) {
@@ -138,7 +234,7 @@ export function proposeLeafRegions(
     }
   }
 
-  // 4. Connected components (BFS 4-neighbour)
+  // 5. Connected components (BFS 4-neighbour)
   const visited = new Uint8Array(totalScaledArea)
   const minPixels = Math.max(1, Math.round(totalScaledArea * 0.004)) // 0.4% threshold
   const rawBoxes: LeafBox[] = []
@@ -190,7 +286,22 @@ export function proposeLeafRegions(
         }
       }
 
+      // In soil mode, drop any component that touches 3 or more image borders
+      const touchesLeft = minX <= 0
+      const touchesRight = maxX >= dw - 1
+      const touchesTop = minY <= 0
+      const touchesBottom = maxY >= dh - 1
+      const bordersTouched =
+        (touchesLeft ? 1 : 0) +
+        (touchesRight ? 1 : 0) +
+        (touchesTop ? 1 : 0) +
+        (touchesBottom ? 1 : 0)
+
       if (count >= minPixels) {
+        if (stats.soilMode && bordersTouched >= 3) {
+          continue
+        }
+
         rawBoxes.push({
           x: minX,
           y: minY,
@@ -201,7 +312,7 @@ export function proposeLeafRegions(
     }
   }
 
-  // 5. Merge boxes with IoU > 0.3
+  // 6. Merge boxes with IoU > 0.3
   let mergedBoxes = [...rawBoxes]
   let changed = true
   while (changed) {
@@ -225,7 +336,7 @@ export function proposeLeafRegions(
     }
   }
 
-  // 6. Pad each box 8%, make square-ish (min side >= 0.5 * max side), clip, and scale back to original coords
+  // 7. Pad each box 8%, make square-ish (min side >= 0.5 * max side), clip, and scale back to original coords
   const processedBoxes: LeafBox[] = mergedBoxes.map((b) => {
     // 8% padding
     const padX = Math.round(b.w * 0.08)
@@ -257,7 +368,7 @@ export function proposeLeafRegions(
     return { x: ox, y: oy, w: ow, h: oh }
   })
 
-  // 7. Check dense canopy or insufficient regions
+  // 8. Check dense canopy or insufficient regions
   const totalArea = width * height
   const hasDenseCanopy = processedBoxes.some((b) => b.w * b.h > 0.70 * totalArea)
 
@@ -268,11 +379,11 @@ export function proposeLeafRegions(
     }
   }
 
-  // 8. Keep largest maxRegions
+  // 9. Keep largest maxRegions
   processedBoxes.sort((a, b) => b.w * b.h - a.w * a.h)
   const kept = processedBoxes.slice(0, maxRegions)
 
-  // 9. Sort in reading order (top to bottom, left to right)
+  // 10. Sort in reading order (top to bottom, left to right)
   const rowBand = height * 0.10
   kept.sort((a, b) => {
     if (Math.abs(a.y - b.y) > rowBand) {
