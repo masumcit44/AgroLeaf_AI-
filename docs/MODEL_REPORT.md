@@ -1,4 +1,6 @@
-# Model report (M5) — v1-blend-p2-p3-scratch
+# Model report (M5) — v1-blend-p2-p3-scratch (+ M3 gate = shipped `v2-blend-p2-p3-scratch-gate`)
+
+The live app ships `v2-blend-p2-p3-scratch-gate`: the disease blend below, unchanged, plus the M3 not-rice gate folded into the same ONNX (last section).
 
 All models are trained **from random initialisation** (`pretrained=False`) on the AgroLeaf AI unified dataset build v2
 (train 8,863 / val 1,902 / internal test 1,901 / external BD5 2,671). Augmentation profile **A0_baseline** (winner of the
@@ -108,4 +110,4 @@ moiré, cool white balance, glare, JPEG).
 
 **Limits.** Other crops' leaves (PlantDoc) are the hardest negatives: about 1 in 4 still passes as rice. Screen photos of
 rice are accepted, but the **disease model itself drops to macro-F1 ≈ 0.65 on simulated screen photos** (0.89 on normal photos);
-inference-time fixes (blur, flip TTA, gray-world) did not help. A screen-recapture fine-tune is being evaluated separately.
+inference-time fixes (blur, flip TTA, gray-world) did not help. A screen-recapture fine-tune was evaluated (Kaggle `agroleaf-screen-finetune` v5): screen-photo macro-F1 0.804, but clean internal test 0.888, below our 0.890 ship rule, so it was **not shipped** (`docs/DECISIONS.md` D17).

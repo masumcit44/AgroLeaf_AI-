@@ -33,20 +33,20 @@ Every item: Understand → Plan → **Tests first** → Implement → PR → Rev
 | F13 | নমুনা ছবি gallery (judges-দের জন্য) | SHOULD | CP3 | `feat/F13-sample-gallery` | merged (#20) |
 | F14 | Offline PWA (install করা যায়) | SHOULD | CP3 | `feat/F14-offline-pwa` | merged (#9) |
 | F15 | কৃষি কর্মকর্তার জন্য case summary | SHOULD | CP3 | `feat/F15-case-summary` | merged (#10) |
-| F16 | আবহাওয়া-ভিত্তিক রোগ-ঝুঁকি সতর্কতা | SHOULD | CP3 | `feat/F16-weather-tab-gps` | in-review |
+| F16 | আবহাওয়া ট্যাব: রোগ-ঝুঁকি + ফসল-পর্যায়ক্রম (opt-in ~1 km GPS, Open-Meteo, এলাকার নাম Nominatim) | SHOULD | CP3 | `feat/F16-weather-tab-gps` | merged (#41, #42; area name + location pill #49, #50) |
 | S3 | Pitch ও final submission | MUST | CP4 | `docs/S3-pitch-submission` | merged (#12) |
 
 ## Tanjil Shaiket
 
 | ID | Feature | Priority | Deadline | Branch | Status |
 |---|---|---|---|---|---|
-| F1 | App shell ও design system | MUST | CP1 | `feat/F1-app-shell` | merged (#1; UI/UX redesign #33) |
+| F1 | App shell ও design system | MUST | CP1 | `feat/F1-app-shell` | merged (#1; UI/UX redesign #33, #45–#47; full bn/en #50) |
 | F2 | ছবি নেওয়া: gallery + camera + preview | MUST | CP1 | `feat/F2-photo-input` | merged (#5) |
 | F3 | ছবির মান যাচাই (অন্ধকার / ঝাপসা) | MUST | CP2 | `feat/F3-photo-quality` | merged (#6, via #22) |
 | F4 | Analyze flow ও ফলাফলের screen (৪টি tier) | MUST | CP2 | `feat/F4-result-screens` | merged (#13, via #22) |
 | F5 | বাংলা / English toggle | SHOULD | CP3 | `feat/F5-language-toggle` | merged (#28) |
-| F17 | করণীয় রোডম্যাপ (পরবর্তী ৭ দিন) | SHOULD | CP3 | `feat/F17-action-roadmap` | in-review |
-| S2 | ৩ মিনিটের demo video | MUST | CP4 | `docs/S2-demo-video` | in-progress |
+| F17 | করণীয় রোডম্যাপ (পরবর্তী ৭ দিন) | SHOULD | CP3 | `feat/F17-action-roadmap` | merged (#48) |
+| S2 | ৩ মিনিটের demo video | Optional (Rule 12.6; public live link exists) | CP4 | `docs/S2-demo-video` | optional, not required |
 
 ## Md. Mehedi Hasan
 
@@ -57,5 +57,5 @@ Every item: Understand → Plan → **Tests first** → Implement → PR → Rev
 | F8 | বাংলায় ফল পড়ে শোনানো | SHOULD | CP3 | `feat/F8-voice-readout` | merged (#23, #34, #36) |
 | F9 | Scan ইতিহাস (শুধু নিজের ফোনে) | SHOULD | CP3 | `feat/F9-scan-history` | merged (#25, #35) |
 | F10 | QA: edge-case ছবি সেট + end-to-end test | MUST | CP2–CP4 | `feat/F10-qa-e2e` | merged (#26) |
-| F18 | আনুমানিক আক্রান্ত এলাকা + ১৬১২৩ জরুরি সংকেত | SHOULD | CP3 | `feat/F18-severity-estimate` | in-review |
+| F18 | আনুমানিক আক্রান্ত এলাকা + ১৬১২৩ জরুরি সংকেত | SHOULD | CP3 | `feat/F18-severity-estimate` | merged (#44) |
 | S1 | README (সব নিয়ম মেনে) | MUST | CP4 | `docs/S1-readme` | merged (#27) |

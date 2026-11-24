@@ -127,3 +127,12 @@ dist/index.html  1.09 kB │ gzip: 0.58 kB
 dist/assets/main-DSDfWW8w.js  347.68 kB │ gzip: 101.27 kB
 ✓ built in 594ms
 ```
+
+## v2 re-check (added by Md. Masum Akondha, 23 Nov night)
+
+Re-run of the real-photo checks on the shipped `v2-blend-p2-p3-scratch-gate`, with Python ONNX Runtime and `ml/agroleaf_ml/preprocess.py` (the browser matches it within 1e-4, `web/src/ai/model.parity.test.ts`).
+
+- The six gallery samples in `web/public/samples/` (test split; `brown_spot.jpg` was replaced in #37): **6 / 6 correct, all high tier** (0.97–0.996).
+- Onsite demo pack (30 test-split photos, 5 per class, kept outside the repo with their sources): **25 / 30 correct top-1**; 2 go to "আমি নিশ্চিত নই"; 3 are confident mistakes (1 Brown Spot → Tungro, 2 Leaf Smut → Blast / Brown Spot), in line with the per-class F1 in `docs/MODEL_REPORT.md`.
+- Real not-rice photos (sky, hand, mango leaf, coffee mug, brick wall; Wikimedia Commons): **5 / 5 rejected** as "এটি ধানপাতা মনে হচ্ছে না" (p_not_rice ≥ 0.999). One banana-leaf photo was **not** rejected (Brown Spot 0.69), matching the known ~1-in-4 other-crop leak. The v1 "blue sky → Healthy 84%" observation above did not repeat with a real sky photo on v2.
+
