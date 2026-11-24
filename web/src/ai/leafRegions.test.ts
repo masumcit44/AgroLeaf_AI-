@@ -298,7 +298,8 @@ describe('leafRegions - proposeLeafRegions & gridTiles', () => {
     const res = proposeLeafRegions({ data, width, height })
     expect(res.mode).toBe('leaf_regions')
     expect(res.boxes.length).toBe(3)
-    const rowBox = res.boxes.find((b) => b.y >= 200 && b.w >= 300)
+    // Strip at y=230 expands upwards to y=161 due to square-ish adjustment (h >= 0.5 * w)
+    const rowBox = res.boxes.find((b) => b.y >= 150 && b.w >= 300)
     expect(rowBox).toBeDefined()
   })
 

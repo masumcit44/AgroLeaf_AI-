@@ -171,8 +171,9 @@ export function gridTiles(width: number, height: number): LeafBox[] {
  *   (v >= 0.55), whereas wet or muddy paddy soil has lower value (v < 0.55).
  * - +0.15 (relative brightness contrast): Retains brown pixels with value >= medianBrownV + 0.15,
  *   ensuring high-contrast straw/dead leaves are segmented while ambient soil is suppressed.
- * - 3 borders: Components touching >= 3 image borders represent pervasive background terrain
- *   surrounding the plant canopy, rather than an isolated leaf region.
+ * - 3 borders & greenShare < 0.5: Components touching >= 3 image borders represent pervasive
+ *   background terrain (soil/sky) unless dominated by green tissue (greenShare >= 0.5), allowing
+ *   full-width green rice rows to survive while dropping background terrain.
  *
  * Proposes individual leaf regions from a whole-canopy or field-row photo.
  * If individual leaves cannot be segmented or canopy is dense (>70%),
@@ -200,21 +201,26 @@ export function proposeLeafRegions(
   const stats = regionDebugStats(img)
   const brownThreshold = Math.max(0.55, stats.medianBrownV + 0.15)
 
-  // 3. Build binary mask (Pass 2)
+  // 3. Build binary mask and undilated pixel-class map (Pass 2)
   // Soil mode: green OR leaf-bright brown (v >= max(0.55, medianBrownV + 0.15))
   // Normal mode: green OR brown
+  // Store pixelClasses: 1 = green, 2 = brown, 0 = other
+  const pixelClasses = new Uint8Array(totalScaledArea)
   const mask = new Uint8Array(totalScaledArea)
   for (let dy = 0; dy < dh; dy++) {
     const sy = Math.min(height - 1, Math.floor(dy / scale))
     for (let dx = 0; dx < dw; dx++) {
       const sx = Math.min(width - 1, Math.floor(dx / scale))
       const idx = (sy * width + sx) * 4
+      const pIdx = dy * dw + dx
       const { type, v } = classifyPixel(data[idx], data[idx + 1], data[idx + 2])
       if (type === 'green') {
-        mask[dy * dw + dx] = 1
+        pixelClasses[pIdx] = 1
+        mask[pIdx] = 1
       } else if (type === 'brown') {
+        pixelClasses[pIdx] = 2
         if (!stats.soilMode || v >= brownThreshold) {
-          mask[dy * dw + dx] = 1
+          mask[pIdx] = 1
         }
       }
     }
@@ -252,6 +258,7 @@ export function proposeLeafRegions(
       let minY = y
       let maxY = y
       let count = 0
+      let greenPixels = 0
 
       const queueX = [x]
       const queueY = [y]
@@ -260,6 +267,9 @@ export function proposeLeafRegions(
         const cx = queueX.pop()!
         const cy = queueY.pop()!
         count++
+        if (pixelClasses[cy * dw + cx] === 1) {
+          greenPixels++
+        }
 
         if (cx < minX) minX = cx
         if (cx > maxX) maxX = cx
@@ -287,6 +297,7 @@ export function proposeLeafRegions(
       }
 
       // In soil mode, drop any component that touches 3 or more image borders
+      // ONLY when its green share (greenPixels / count) < 0.5
       const touchesLeft = minX <= 0
       const touchesRight = maxX >= dw - 1
       const touchesTop = minY <= 0
@@ -297,8 +308,10 @@ export function proposeLeafRegions(
         (touchesTop ? 1 : 0) +
         (touchesBottom ? 1 : 0)
 
+      const greenShare = count > 0 ? greenPixels / count : 0
+
       if (count >= minPixels) {
-        if (stats.soilMode && bordersTouched >= 3) {
+        if (stats.soilMode && bordersTouched >= 3 && greenShare < 0.5) {
           continue
         }
 
