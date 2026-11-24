@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { proposeLeafRegions, gridTiles } from './leafRegions'
+import { proposeLeafRegions, gridTiles, regionDebugStats } from './leafRegions'
 
 function drawRect(
   data: Uint8ClampedArray,
@@ -105,5 +105,173 @@ describe('leafRegions - proposeLeafRegions & gridTiles', () => {
       expect(t.x + t.w).toBeLessThanOrEqual(400)
       expect(t.y + t.h).toBeLessThanOrEqual(600)
     }
+  })
+
+  // --- Soil-aware region proposal tests (C1 bugfix) ---
+
+  it('1. proposes 3 green leaves on brown soil rgb(120,85,55) without falling back to grid', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    // Realistic brown soil background
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 120
+      data[i * 4 + 1] = 85
+      data[i * 4 + 2] = 55
+      data[i * 4 + 3] = 255
+    }
+
+    // 3 green leaves
+    drawRect(data, width, 50, 40, 50, 40, 34, 139, 34)
+    drawRect(data, width, 250, 40, 50, 40, 50, 160, 50)
+    drawRect(data, width, 150, 180, 60, 40, 40, 150, 40)
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('leaf_regions')
+    expect(res.boxes.length).toBe(3)
+
+    // Reading order
+    expect(res.boxes[0].y).toBeLessThan(res.boxes[2].y)
+    expect(res.boxes[0].x).toBeLessThan(res.boxes[1].x)
+
+    for (const box of res.boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.w).toBeLessThanOrEqual(width)
+      expect(box.y + box.h).toBeLessThanOrEqual(height)
+    }
+  })
+
+  it('2. proposes 2 green leaves and 1 elongated dry straw leaf rgb(200,170,110) on brown soil', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 120
+      data[i * 4 + 1] = 85
+      data[i * 4 + 2] = 55
+      data[i * 4 + 3] = 255
+    }
+
+    // 2 green leaves
+    drawRect(data, width, 50, 40, 50, 40, 34, 139, 34)
+    drawRect(data, width, 250, 40, 50, 40, 50, 160, 50)
+    // 1 elongated dry straw leaf: size 120x20, rgb(200,170,110)
+    drawRect(data, width, 140, 180, 120, 20, 200, 170, 110)
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('leaf_regions')
+    expect(res.boxes.length).toBe(3)
+
+    for (const box of res.boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.w).toBeLessThanOrEqual(width)
+      expect(box.y + box.h).toBeLessThanOrEqual(height)
+    }
+  })
+
+  it('3. proposes 4 green leaves on muddy dark soil rgb(90,65,45)', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 90
+      data[i * 4 + 1] = 65
+      data[i * 4 + 2] = 45
+      data[i * 4 + 3] = 255
+    }
+
+    // 4 green leaves
+    drawRect(data, width, 40, 40, 50, 40, 34, 139, 34)
+    drawRect(data, width, 260, 40, 50, 40, 50, 160, 50)
+    drawRect(data, width, 40, 200, 50, 40, 40, 150, 40)
+    drawRect(data, width, 260, 200, 50, 40, 34, 140, 34)
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('leaf_regions')
+    expect(res.boxes.length).toBe(4)
+
+    for (const box of res.boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(0)
+      expect(box.x + box.w).toBeLessThanOrEqual(width)
+      expect(box.y + box.h).toBeLessThanOrEqual(height)
+    }
+  })
+
+  it('4. falls back to grid_fallback without crashing when only soil is present', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 120
+      data[i * 4 + 1] = 85
+      data[i * 4 + 2] = 55
+      data[i * 4 + 3] = 255
+    }
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('grid_fallback')
+    expect(res.boxes.length).toBe(6)
+  })
+
+  it('5. dense green canopy full frame still returns grid_fallback', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 40
+      data[i * 4 + 1] = 150
+      data[i * 4 + 2] = 40
+      data[i * 4 + 3] = 255
+    }
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('grid_fallback')
+    expect(res.boxes.length).toBe(6)
+  })
+
+  it('6. dead brown leaf rgb(160,120,60) on green-dominant/grey background is proposed', () => {
+    const width = 400
+    const height = 300
+    const data = new Uint8ClampedArray(width * height * 4)
+
+    // Neutral grey background
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 128
+      data[i * 4 + 1] = 128
+      data[i * 4 + 2] = 128
+      data[i * 4 + 3] = 255
+    }
+
+    // 1 green leaf + 1 dead brown leaf
+    drawRect(data, width, 50, 40, 60, 40, 34, 139, 34)
+    drawRect(data, width, 250, 40, 60, 40, 160, 120, 60)
+
+    const res = proposeLeafRegions({ data, width, height })
+    expect(res.mode).toBe('leaf_regions')
+    expect(res.boxes.length).toBe(2)
+  })
+
+  it('regionDebugStats computes soilMode and shares correctly', () => {
+    const width = 100
+    const height = 100
+    const data = new Uint8ClampedArray(width * height * 4)
+    for (let i = 0; i < width * height; i++) {
+      data[i * 4] = 120
+      data[i * 4 + 1] = 85
+      data[i * 4 + 2] = 55
+      data[i * 4 + 3] = 255
+    }
+    const stats = regionDebugStats({ data, width, height })
+    expect(stats.soilMode).toBe(true)
+    expect(stats.brownShare).toBeGreaterThan(0.9)
+    expect(stats.greenShare).toBe(0)
   })
 })
