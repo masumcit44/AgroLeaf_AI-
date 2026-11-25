@@ -21,7 +21,7 @@ export const bn = {
   historyTitle: 'স্ক্যান ইতিহাস',
   historyDesc: 'আপনার ডিভাইসে সংরক্ষিত পূর্ববর্তী পরীক্ষার ফলাফল এখানে দেখা যাবে।',
   aboutTitle: 'সম্পর্কে',
-  aboutDesc: 'AgroLeaf AI — টিম EU_SHADOW কর্তৃক CoU AI হ্যাকাথন ২০২৬-এর জন্য তৈরি।',
+  aboutDesc: 'AgroLeaf AI — টিম EU_SHADOW কর্তৃক তৈরি।',
 
   // Capture / PhotoPicker (F2)
   cameraBtn: 'ক্যামেরা দিয়ে তুলুন',
