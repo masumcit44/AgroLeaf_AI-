@@ -1,4 +1,4 @@
-# Feature tracker — AgroLeaf AI (CoU AI Hackathon 2026)
+# Feature tracker — AgroLeaf AI
 
 Model work (M1–M8) belongs to the team lead. The other 15 features are split equally (5 each), plus one shared deliverable each.
 Status: `todo` → `in-progress` → `in-review` (PR open) → `merged` → `verified`. Full spec of each item: `docs/specs/<ID>.md`.

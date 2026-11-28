@@ -23,7 +23,7 @@ export const en: Record<I18nKeys, string> = {
   historyTitle: 'Scan History',
   historyDesc: 'Previous screening results saved on your device will appear here.',
   aboutTitle: 'About',
-  aboutDesc: 'AgroLeaf AI — Built by Team EU_SHADOW for CoU AI Hackathon 2026.',
+  aboutDesc: 'AgroLeaf AI — Built by Team EU_SHADOW.',
 
   // Capture / PhotoPicker (F2)
   cameraBtn: 'Take with Camera',
